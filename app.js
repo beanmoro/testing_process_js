@@ -1,145 +1,89 @@
+const fs = require('fs');
 
-
-class Product {
-    
-    #id;
-    #title;
-    #description;
-    #price;
-    #thumbnail;
-    #code;
-    #stock;
-
-    constructor(id, title, description, price, thumbnail, code, stock) {
-        this.#id = id;
-        this.#title = title;
-        this.#description = description;
-        this.#thumbnail = thumbnail;
-        this.#price = price;
-        this.#code = code;
-        this.#stock = stock;
-    }
-
-    get id(){
-        return this.#id;
-    }
-
-    set id(_id){
-        this.#id = _id;
-    }
-
-    get title() {
-        return this.#title;
-    }
-    set title(_title) {
-        this.#title = _title;
-    }
-
-    get description() {
-        return this.#description;
-    }
-    set description(_description) {
-        this.#description = _description;
-    }
-
-    get price() {
-        return this.#price;
-    }
-    set price(_price) {
-        this.#price = _price;
-    }
-    
-    get thumbnail(){
-        return this.#thumbnail;
-    }
-
-    set thumbnail(_thumbnail){
-        this.#thumbnail = _thumbnail;
-    }
-
-    get thumbnail() {
-        return this.#thumbnail;
-    }
-    set thumbnail(_thumbnail) {
-        this.#thumbnail = _thumbnail;
-    }
-
-    get code() {
-        return this.#code;
-    }
-    set code(_code) {
-        this.#code = _code;
-    }
-
-    get stock() {
-        return this.#stock;
-    }
-    set stock(_stock) {
-        this.#stock = _stock;
-    }
-
-    toString() {
-        return `Product: { id: ${this.#id}, title: ${this.#title}, description: ${this.#description}, price: ${this.#price}, thumbnail: ${this.#thumbnail}, code: ${this.#code}, stock: ${this.#stock} }`;
-    }
-}
 
 class ProductManager {
+    #path;
 
-    constructor(){
-        this.products = [];
+    constructor(path){
+        this.#path = path;
+        this.init();
     }
 
-    addProduct( title, description, price, thumbnail, code, stock ){
+    async init(){
+        await fs.promises.writeFile(this.#path, '[]');
+    }
 
-        if(this.products.find(p => p.code === code)){
-            console.error(`ERR: ${code} ya existe!`)
+    async addProduct( product){
+        if('id' in product){
             return;
         }
+        const productsFile = await fs.promises.readFile(this.#path, 'utf-8');
+        const productsArray = JSON.parse(productsFile);
+        product.id = productsArray.length;
+        productsArray.push(product);
 
-        if( !title.trim().length || 
-            !description.trim().length || 
-            parseFloat(price) <= 0 ||
-            !thumbnail.trim().length ||
-            !code.trim().length ||
-            stock <= -1
-            ){
-            
-            console.error('ERR: Todos los campos son obligatorios!')
-            return;
-        }
-
-        let last_id = 0
-        if (this.products.length > 0){
-            last_id = this.products[this.products.length - 1 ].id + 1;
-        }
-
-        const p = new Product(last_id, title, description, price, thumbnail, code, stock);
-        this.products.push(p);
+        await fs.promises.writeFile(this.#path, JSON.stringify(productsArray));
     }
 
-    getProducts(){
-        return this.products;
-    }
-
-    getProductById(id){
-        const p = this.products.find(p => p.id == id)
-        if(!p){
-            console.error('ERR: Not found!')
-            return;
+    async getProducts(){
+        try {
+            const productsFile = await fs.promises.readFile(this.#path, 'utf-8');
+            const productsArray = JSON.parse(productsFile);
+            return productsArray;
+        } catch (error) {
+            throw error;
         }
-        return p;
     }
 
-}
+    async getProductById(id){
 
-function main(){
-    const pManager = new ProductManager();
-    console.log(pManager.getProducts());
-    pManager.addProduct('producto prueba', 'Este es un producto prueba', 200, 'Sin imagen', 'abc123', 25);
-    console.log(pManager.getProducts());
-    pManager.addProduct('producto prueba', 'Este es un producto prueba', 200, 'Sin imagen', 'abc123', 25);
-    console.log(pManager.getProductById(0).toString());
-    pManager.getProductById(1);
+        try {
+            const productsFile = await fs.promises.readFile(this.#path, 'utf-8');
+            const productsArray = JSON.parse(productsFile);
+            return productsArray.find(e => e.id === id);
+        } catch (error) {
+            throw error;
+        }
+
+    }
+
+    async updateProduct(id, product){
+        product.id = id;
+        const productsFile = await fs.promises.readFile(this.#path, 'utf-8');
+        const productsArray = JSON.parse(productsFile);
+        productsArray.forEach(e => {
+
+            if(e.id == id){
+                Object.assign(e, product);
+            }
+        });
+        await fs.promises.writeFile(this.#path, JSON.stringify(productsArray));
+    }
+
+    async deleteProduct(id){
+        const productsFile = await fs.promises.readFile(this.#path, 'utf-8');
+        const productsArray = JSON.parse(productsFile);
+        const index = productsArray.findIndex(e => e.id === id);
+        if (index !== -1){
+            productsArray.splice(index, 1);
+        }
+        await fs.promises.writeFile(this.#path, JSON.stringify(productsArray));
+    }
+};
+
+
+
+const main = async () => {
+    const pManager = new ProductManager('./products.json');
+
+    console.log( await pManager.getProducts())
+    await pManager.addProduct({title: "producto prueba", description: "Este es un producto prueba", price: 200, thumbnail: "Sin imagen", code: "abc123", stock: 25});
+    console.log( await pManager.getProducts())
+    console.log( await pManager.getProductById(0))
+    await pManager.updateProduct(22, {code: 'caca'});
+    console.log( await pManager.getProducts())
+    await pManager.deleteProduct(22);
+    console.log( await pManager.getProducts())
 }
 
 main();
